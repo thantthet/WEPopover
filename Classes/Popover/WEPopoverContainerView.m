@@ -78,8 +78,8 @@ permittedArrowDirections:(UIPopoverArrowDirection)permittedArrowDirections
                    displayArea:(CGRect)displayArea
       permittedArrowDirections:(UIPopoverArrowDirection)permittedArrowDirections {
     
-    correctedSize = CGSizeMake(theSize.width + properties.leftBgMargin + properties.rightBgMargin + properties.leftContentMargin + properties.rightContentMargin, 
-                               theSize.height + properties.topBgMargin + properties.bottomBgMargin + properties.topContentMargin + properties.bottomContentMargin);	
+    correctedSize = CGSizeMake(MIN(theSize.width + properties.leftBgMargin + properties.rightBgMargin + properties.leftContentMargin + properties.rightContentMargin, displayArea.size.width),
+                               MIN(theSize.height + properties.topBgMargin + properties.bottomBgMargin + properties.topContentMargin + properties.bottomContentMargin, displayArea.size.height));
 	[self determineGeometryForSize:correctedSize anchorRect:anchorRect displayArea:displayArea permittedArrowDirections:permittedArrowDirections];
 	[self initFrame];
     [self setNeedsDisplay];
@@ -194,7 +194,8 @@ permittedArrowDirections:(UIPopoverArrowDirection)permittedArrowDirections
 						xArrowOffset += theOffset.x;
 						theOffset.x = 0;
 					} else if (theOffset.x + theSize.width > displayArea.size.width) {
-						xArrowOffset += (theOffset.x + theSize.width - displayArea.size.width);
+//						xArrowOffset += ((theOffset.x + theSize.width) - displayArea.size.width);
+                        xArrowOffset += theOffset.x;
 						theOffset.x = displayArea.size.width - theSize.width;
 					}
 					

@@ -37,8 +37,64 @@
 @synthesize context;
 @synthesize passthroughViews;
 
+- (void)keyboardDidShow:(NSNotification *)notification
+{
+	CGRect keyboardEnd;
+	[[notification.userInfo objectForKey:UIKeyboardFrameEndUserInfoKey] getValue:&keyboardEnd];
+    
+    double duration;
+    [[notification.userInfo objectForKey:UIKeyboardAnimationDurationUserInfoKey] getValue:&duration];
+    
+    if (sourceView) {
+        
+        keyboardRect = [sourceView convertRect:keyboardEnd fromView:nil];
+        if (CGRectIntersectsRect(keyboardRect, sourceRect)) {
+        
+            [self repositionPopoverFromRect:sourceRect
+                                     inView:sourceView
+                   permittedArrowDirections:popoverArrowDirection
+                                   animated:YES];
+            
+        }
+    }
+}
+
+- (void)keyboardDidHide:(NSNotification *)notification
+{
+    CGRect keyboardStart;
+	[[notification.userInfo objectForKey:UIKeyboardFrameBeginUserInfoKey] getValue:&keyboardStart];
+    
+    if (sourceView) {
+        
+        keyboardRect = [sourceView convertRect:keyboardStart fromView:nil];
+        if (CGRectIntersectsRect(keyboardRect, sourceRect)) {
+            keyboardRect = CGRectZero;
+            [self repositionPopoverFromRect:sourceRect
+                                     inView:sourceView
+                   permittedArrowDirections:popoverArrowDirection
+                                   animated:YES];
+        } else {
+            keyboardRect = CGRectZero;
+            [self repositionPopoverFromRect:sourceRect
+                                     inView:sourceView
+                   permittedArrowDirections:popoverArrowDirection
+                                   animated:NO];
+        }
+    }
+}
+
+
 - (id)init {
 	if ((self = [super init])) {
+        
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(keyboardDidShow:)
+                                                     name:UIKeyboardDidShowNotification
+                                                   object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(keyboardDidHide:)
+                                                     name:UIKeyboardDidHideNotification
+                                                   object:nil];
 	}
 	return self;
 }
@@ -56,6 +112,12 @@
 	[containerViewProperties release];
 	[passthroughViews release];
 	self.context = nil;
+    
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillShowNotification object:nil];
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillHideNotification object:nil];
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardDidShowNotification object:nil];
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardDidHideNotification object:nil];
+    
 	[super dealloc];
 }
 
@@ -105,8 +167,10 @@
 		BOOL userInitiatedDismissal = [(NSNumber *)theContext boolValue];
 		
 		if (userInitiatedDismissal) {
-			//Only send message to delegate in case the user initiated this event, which is if he touched outside the view
-			[delegate popoverControllerDidDismissPopover:self];
+            if ([delegate respondsToSelector:@selector(popoverControllerDidDismissPopover:)]) {
+                //Only send message to delegate in case the user initiated this event, which is if he touched outside the view
+                [delegate popoverControllerDidDismissPopover:self];
+            }
 		}
 	}
 }
@@ -131,6 +195,8 @@
 	  permittedArrowDirections:(UIPopoverArrowDirection)arrowDirections 
 					  animated:(BOOL)animated {
 	
+    sourceRect = rect;
+    sourceView = theView;
 	
 	[self dismissPopoverAnimated:NO];
 	
@@ -230,8 +296,8 @@
 	WEPopoverContainerView *containerView = (WEPopoverContainerView *)self.view;
 	[containerView updatePositionWithSize:self.popoverContentSize
                                anchorRect:rect
-									displayArea:displayArea
-					   permittedArrowDirections:arrowDirections];
+                              displayArea:displayArea
+                 permittedArrowDirections:arrowDirections];
 	
 	popoverArrowDirection = containerView.arrowDirection;
 	containerView.frame = [theView convertRect:containerView.frame toView:backgroundView];
@@ -246,9 +312,13 @@
 
 - (void)viewWasTouched:(WETouchableView *)view {
 	if (popoverVisible) {
-		if (!delegate || [delegate popoverControllerShouldDismissPopover:self]) {
-			[self dismissPopoverAnimated:YES userInitiated:YES];
-		}
+        if ([delegate respondsToSelector:@selector(popoverControllerShouldDismissPopover:)]) {
+            if ([delegate popoverControllerShouldDismissPopover:self]) {
+                [self dismissPopoverAnimated:YES userInitiated:YES];
+            }
+        } else {
+            [self dismissPopoverAnimated:YES userInitiated:YES];
+        }
 	}
 }
 
@@ -340,6 +410,9 @@
 	} else {
         UIView *keyView = [self keyView];
 		displayArea = [keyView convertRect:keyView.bounds toView:theView];
+        if (CGRectIsEmpty(keyboardRect) == NO && CGRectContainsRect(displayArea, keyboardRect)) {
+            displayArea.size.height = keyboardRect.origin.y - displayArea.origin.y;
+        }
 	}
 	return displayArea;
 }
@@ -348,10 +421,10 @@
 - (WEPopoverContainerViewProperties *)defaultContainerViewProperties {
 	WEPopoverContainerViewProperties *ret = [[WEPopoverContainerViewProperties new] autorelease];
 	
-	CGSize imageSize = CGSizeMake(30.0f, 30.0f);
-	NSString *bgImageName = @"popoverBgSimple.png";
-	CGFloat bgMargin = 6.0;
-	CGFloat contentMargin = 2.0;
+	CGSize imageSize = CGSizeMake(62.0f, 62.0f);
+	NSString *bgImageName = @"popoverBg";
+	CGFloat bgMargin = 13;
+	CGFloat contentMargin = 3.0;
 	
 	ret.leftBgMargin = bgMargin;
 	ret.rightBgMargin = bgMargin;
@@ -364,12 +437,12 @@
 	ret.rightContentMargin = contentMargin;
 	ret.topContentMargin = contentMargin;
 	ret.bottomContentMargin = contentMargin;
-	ret.arrowMargin = 1.0;
+	ret.arrowMargin = 4.0;
 	
-	ret.upArrowImageName = @"popoverArrowUpSimple.png";
-	ret.downArrowImageName = @"popoverArrowDownSimple.png";
-	ret.leftArrowImageName = @"popoverArrowLeftSimple.png";
-	ret.rightArrowImageName = @"popoverArrowRightSimple.png";
+	ret.upArrowImageName = @"popoverArrowUp";
+	ret.downArrowImageName = @"popoverArrowDown";
+	ret.leftArrowImageName = @"popoverArrowLeft";
+	ret.rightArrowImageName = @"popoverArrowRight";
 	return ret;
 }
 

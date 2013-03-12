@@ -15,6 +15,7 @@
 
 @protocol WEPopoverControllerDelegate<NSObject>
 
+@optional
 - (void)popoverControllerDidDismissPopover:(WEPopoverController *)popoverController;
 - (BOOL)popoverControllerShouldDismissPopover:(WEPopoverController *)popoverController;
 
@@ -35,7 +36,11 @@
 	CGSize popoverContentSize;
 	WEPopoverContainerViewProperties *containerViewProperties;
 	id <NSObject> context;
-	NSArray *passthroughViews;	
+	NSArray *passthroughViews;
+    
+    CGRect keyboardRect;
+    CGRect sourceRect;
+    UIView *sourceView;
 }
 
 @property(nonatomic, retain) UIViewController *contentViewController;
